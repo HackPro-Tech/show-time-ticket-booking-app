@@ -1,0 +1,10 @@
+#Application Name
+spring:
+  application:
+    name: auth-service
+
+# Bean Override
+---
+spring:
+  main:
+    allow-bean-definition-overriding: true

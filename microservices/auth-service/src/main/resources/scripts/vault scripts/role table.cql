@@ -1,0 +1,8 @@
+create table vault.role(role_id uuid, role_name text,  primary key(role_id));
+
+
+
+
+
+insert into vault.role(role_id, role_name) values (now(), 'ROLE_USER');
+insert into vault.role(role_id, role_name) values (now(), 'ROLE_ADMIN');

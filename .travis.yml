@@ -1,0 +1,24 @@
+# LANGUAGE
+language: java
+jdk:
+  - openjdk8
+
+
+# JOBS
+jobs:
+  include:
+   - stage: TEST   	# TEST JOB
+     script: 
+       - chmod -R 777 ./microservices/
+       - echo ">>>>> Show_Time_App Services Testing Started!!!"   
+       - mvn -f ./microservices/pom.xml clean test
+   - stage: BUILD      # BUILD JOB
+     script: 
+       - echo ">>>>> Show_Time_App Services Build Started!!!"   
+       - mvn -f ./microservices/pom.xml clean install
+
+
+
+# EMAIL NOTIFICATION
+notifications:
+   email: vengat19amd@gmail.com

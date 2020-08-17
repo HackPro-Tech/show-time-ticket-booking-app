@@ -1,0 +1,15 @@
+# Server Name and Git sync URL
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/HackPro-Tech/show-time-app-config
+          timeout: 5
+
+
+#server port no
+server:
+  port: 8888
