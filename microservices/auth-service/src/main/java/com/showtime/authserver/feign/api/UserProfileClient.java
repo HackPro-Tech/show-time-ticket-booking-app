@@ -16,6 +16,10 @@ import com.showtime.authserver.feign.fallbacks.UserProfileClientFallBack;
 @FeignClient(name = "user-service", url = "http://localhost:8100/user", fallback = UserProfileClientFallBack.class)
 public interface UserProfileClient {
 
+	/**
+	 * To Register new user profiles
+	 * @param userInfoRequest
+	 */
 	@PostMapping("/create-profile")
 	public void createUserProfileDetails(@RequestBody UserInfoRequest userInfoRequest);
 
