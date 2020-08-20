@@ -1,5 +1,6 @@
 package com.showtime.userservice.dao.impl;
 
+import com.showtime.corelib.constant.message.Messages;
 import com.showtime.exception.UserAlreadyExistsException;
 import com.showtime.exception.PersistentException;
 import com.showtime.userservice.dao.UserProfileDao;
@@ -8,6 +9,8 @@ import com.showtime.userservice.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -28,11 +31,15 @@ public class UserProfileDaoImpl implements UserProfileDao {
     private final UserProfileRepository userProfileRepository;
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRED)
     public UserProfile createUserProfile(UserProfile userProfile) {
         UserProfile newUserProfile = new UserProfile();
         try {
             Optional<UserProfile> existUserProfile = readUserProfile(userProfile.getUserId());
-            if (!existUserProfile.isPresent()) {
+            if (existUserProfile.isPresent()) {
+                log.debug("######### User Profile Already Exist!!!");
+                throw new UserAlreadyExistsException(Messages.USER_ALREADY_EXISTS);
+            } else {
                 userProfile.setUserId(userProfile.getUserId());
                 LocalDateTime ldt = LocalDateTime.now();
                 ZonedDateTime ldtZoned = ldt.atZone(ZoneId.systemDefault());
@@ -40,9 +47,6 @@ public class UserProfileDaoImpl implements UserProfileDao {
                 userProfile.setModifiedAt(Date.from(ldtZoned.toInstant()));
                 userProfile.setProfileImage(userProfile.getProfileImage());
                 newUserProfile = userProfileRepository.save(userProfile);
-            } else {
-                log.debug("######### User Profile Already Exist!!!");
-                throw new UserAlreadyExistsException("User Profile Already Exist!!!");
             }
             return newUserProfile;
         } catch (Exception ex) {

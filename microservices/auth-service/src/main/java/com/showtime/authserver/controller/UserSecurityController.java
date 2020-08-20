@@ -10,7 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 /**
@@ -29,8 +31,10 @@ public class UserSecurityController {
      * @param userInfoRequest
      */
     @PostMapping("/register-new-user")
-    public void registerNewUser(@RequestBody UserProfileRequest userInfoRequest) {
+    public ResponseEntity<Void> registerNewUser(@RequestBody UserProfileRequest userInfoRequest) {
         userService.registerNewUser(userInfoRequest);
+        URI uri = ServletUriComponentsBuilder.fromCurrentRequest().build().toUri();
+        return ResponseEntity.created(uri).build();
     }
 
     /**
