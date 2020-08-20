@@ -27,7 +27,8 @@ public class UserProfileController {
      *
      * @param userProfileRequest
      */
-    public ResponseEntity<Void> createUserProfileDetails(@PathVariable("user-id") UUID userId, @RequestBody UserProfileRequest userProfileRequest) {
+    @PostMapping(path = "/create-profile/{userId}")
+    public ResponseEntity<Void> createUserProfileDetails(@PathVariable("userId") UUID userId, @RequestBody UserProfileRequest userProfileRequest) {
         userProfileRequest.setUserId(userId);
         UserProfile userProfile = userProfileService.createUserProfile(userProfileRequest);
         URI uri = ServletUriComponentsBuilder.fromCurrentRequest().build().toUri();

@@ -1,14 +1,16 @@
 package com.showtime.authserver.service.impl;
 
-import com.showtime.authserver.bean.request.UserInfoRequest;
+import com.showtime.authserver.bean.request.UserProfileRequest;
 import com.showtime.authserver.bean.request.UserSearchRequest;
 import com.showtime.authserver.bean.response.UserResponse;
-import com.showtime.authserver.constants.UserRoles;
 import com.showtime.authserver.dao.UserDao;
 import com.showtime.authserver.domain.User;
 import com.showtime.authserver.domain.UserDetailsPrincipal;
 import com.showtime.authserver.feign.api.UserProfileClient;
 import com.showtime.authserver.service.UserService;
+import com.showtime.corelib.constant.UserRoles;
+import com.showtime.corelib.constant.message.Messages;
+import com.showtime.corelib.constant.value.ValueConstants;
 import com.showtime.exception.IAMServiceException;
 import com.showtime.exception.MaxRecordLimitException;
 import com.showtime.exception.UserAlreadyExistsException;
@@ -17,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -60,15 +64,19 @@ public class UserServiceImpl implements UserService {
     /**
      * To Register New User and publish registered notification into kafka
      *
-     * @param userInfoRequest
+     * @param userProfileRequest
      */
     @Override
-    public void registerNewUser(UserInfoRequest userInfoRequest) {
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void registerNewUser(UserProfileRequest userProfileRequest) {
         try {
-            if (checkUserAlreadyExists(userInfoRequest)) {
-                throw new UserAlreadyExistsException("User Already Exists!!!");
+            if (checkUserAlreadyExists(userProfileRequest)) {
+                throw new UserAlreadyExistsException(Messages.USER_ALREADY_EXISTS);
             } else {
-                User registeredUserDetails = userDao.saveUserDetails(mapUserRequest(userInfoRequest));
+                User registeredUserDetails = userDao.saveUserDetails(mapUserRequest(userProfileRequest));
+
+                // Invoke the User Profile Service API
+                createUserProfile(registeredUserDetails);
             }
         } catch (UserAlreadyExistsException userException) {
             log.debug("##### Current User is already exists ", userException);
@@ -79,23 +87,32 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private boolean checkUserAlreadyExists(UserInfoRequest userInfoRequest) {
-        Optional<User> user = userDao.findByEmailOrPhoneNo(userInfoRequest.getEmail());
+    private boolean checkUserAlreadyExists(UserProfileRequest userProfileRequest) {
+        Optional<User> user = userDao.findByEmailOrPhoneNo(userProfileRequest.getEmail());
         return user.isPresent();
     }
 
-    private User mapUserRequest(UserInfoRequest userInfoRequest) {
+    // Map User Profile Request
+    private User mapUserRequest(UserProfileRequest userProfileRequest) {
         User user = new User();
-        user.setEmail(userInfoRequest.getEmail());
-        user.setPhoneNo(userInfoRequest.getPhoneNo());
+        user.setEmail(userProfileRequest.getEmail());
+        user.setPhoneNo(userProfileRequest.getPhoneNo());
         user.setUserId(UUID.randomUUID());
-        user.setPassword(userInfoRequest.getPassword());
-        user.setEnabled(true);
-        user.setAccountNonExpired(true);
-        user.setAccountNonLocked(true);
-        user.setCredentialsNonExpired(true);
+        user.setPassword(userProfileRequest.getPassword());
+        user.setEnabled(ValueConstants.TRUE);
+        user.setAccountNonExpired(ValueConstants.TRUE);
+        user.setAccountNonLocked(ValueConstants.TRUE);
+        user.setCredentialsNonExpired(ValueConstants.TRUE);
         user.setRoles(new HashSet<>(Arrays.asList(UserRoles.USER.getRole())));
         return user;
+    }
+
+    // Invoke the User Profile Service API
+    private void createUserProfile(User user) {
+        UserProfileRequest userProfileRequest = new UserProfileRequest();
+        userProfileRequest.setEmail(user.getEmail());
+        userProfileRequest.setPhoneNo(user.getPhoneNo());
+        userProfileClient.createUserProfileDetails(user.getUserId(), userProfileRequest);
     }
 
     @Override

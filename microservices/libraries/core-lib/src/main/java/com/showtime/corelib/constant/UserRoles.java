@@ -1,4 +1,4 @@
-package com.showtime.authserver.constants;
+package com.showtime.corelib.constant;
 
 import lombok.Getter;
 

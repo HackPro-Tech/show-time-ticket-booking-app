@@ -1,7 +1,7 @@
 
 package com.showtime.authserver.controller;
 
-import com.showtime.authserver.bean.request.UserInfoRequest;
+import com.showtime.authserver.bean.request.UserProfileRequest;
 import com.showtime.authserver.bean.request.UserSearchRequest;
 import com.showtime.authserver.bean.response.UserResponse;
 import com.showtime.authserver.service.UserService;
@@ -29,7 +29,7 @@ public class UserSecurityController {
      * @param userInfoRequest
      */
     @PostMapping("/register-new-user")
-    public void registerNewUser(@RequestBody UserInfoRequest userInfoRequest) {
+    public void registerNewUser(@RequestBody UserProfileRequest userInfoRequest) {
         userService.registerNewUser(userInfoRequest);
     }
 
