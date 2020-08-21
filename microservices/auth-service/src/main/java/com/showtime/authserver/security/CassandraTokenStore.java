@@ -1,11 +1,10 @@
 package com.showtime.authserver.security;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.showtime.authserver.domain.AccessToken;
 import com.showtime.authserver.domain.RefreshToken;
 import com.showtime.authserver.repository.AccessTokenRepository;
 import com.showtime.authserver.repository.RefreshTokenRepository;
+import com.showtime.authserver.service.TokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.common.OAuth2RefreshToken;
@@ -13,10 +12,12 @@ import org.springframework.security.oauth2.common.util.SerializationUtils;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.security.oauth2.provider.token.AuthenticationKeyGenerator;
 import org.springframework.security.oauth2.provider.token.TokenStore;
+import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.Collections2.filter;
@@ -25,6 +26,7 @@ import static com.google.common.collect.Collections2.transform;
 /**
  * @author Vengatesan Nagarajan
  */
+@Service
 public class CassandraTokenStore implements TokenStore {
 
     @Autowired
@@ -36,6 +38,9 @@ public class CassandraTokenStore implements TokenStore {
     @Autowired
     private AuthenticationKeyGenerator authenticationKeyGenerator;
 
+    @Autowired
+    private TokenService tokenService;
+
     @Override
     public OAuth2Authentication readAuthentication(OAuth2AccessToken token) {
         return readAuthentication(token.getValue());
@@ -46,9 +51,9 @@ public class CassandraTokenStore implements TokenStore {
         Optional<AccessToken> accessToken = accessTokenRepository.findByTokenId(token);
         if (accessToken.isPresent()) {
             try {
-                return deserializeAuthentication(accessToken.get().getAuthentication());
+                return (OAuth2Authentication) deserializeTokenOrAuthentication(accessToken.get().getAuthentication());
             } catch (IllegalArgumentException e) {
-                removeAccessToken(token);
+                tokenService.revokeAccessToken(token);
             }
         }
         return null;
@@ -57,15 +62,19 @@ public class CassandraTokenStore implements TokenStore {
     // Store Access Token, remove Existing Token and store Refresh token
     @Override
     public void storeAccessToken(OAuth2AccessToken token, OAuth2Authentication authentication) {
-        ByteBuffer bufferedToken = serializeAccessToken(token);
-        ByteBuffer bufferedAuthentication = serializeAuthentication(authentication);
+        ByteBuffer bufferedToken = ByteBuffer.wrap(SerializationUtils.serialize(token));
+        ByteBuffer bufferedAuthentication = ByteBuffer.wrap(SerializationUtils.serialize(authentication));
         String refreshToken = null;
         if (token.getRefreshToken() != null) {
             refreshToken = token.getRefreshToken().getValue();
         }
+
+        // Remove existing Refresh Token
         if (readAccessToken(token.getValue()) != null) {
-            removeAccessToken(token.getValue());
+            tokenService.revokeAccessToken(token.getValue());
         }
+
+        // Store new Access Token
         AccessToken accessToken = new AccessToken();
         accessToken.setTokenId(token.getValue());
         accessToken.setToken(bufferedToken);
@@ -75,6 +84,8 @@ public class CassandraTokenStore implements TokenStore {
         accessToken.setUsername(authentication.isClientOnly() ? null : authentication.getName());
         accessToken.setAuthenticationId(authenticationKeyGenerator.extractKey(authentication));
         accessTokenRepository.save(accessToken);
+
+        // Store new Refresh Token
         if (token.getRefreshToken() != null && token.getRefreshToken().getValue() != null) {
             storeRefreshToken(token.getRefreshToken(), authentication);
         }
@@ -85,9 +96,9 @@ public class CassandraTokenStore implements TokenStore {
         Optional<AccessToken> accessToken = accessTokenRepository.findByTokenId(tokenId);
         if (accessToken.isPresent()) {
             try {
-                return deserializeAccessToken(accessToken.get().getToken());
+                return (OAuth2AccessToken) deserializeTokenOrAuthentication(accessToken.get().getToken());
             } catch (IllegalArgumentException ex) {
-                removeAccessToken(tokenId);
+                tokenService.revokeAccessToken(tokenId);
             }
         }
         return null;
@@ -95,29 +106,26 @@ public class CassandraTokenStore implements TokenStore {
 
     @Override
     public void removeAccessToken(OAuth2AccessToken token) {
-        removeAccessToken(token.getValue());
+        tokenService.revokeAccessToken(token.getValue());
     }
 
     @Override
     public void storeRefreshToken(OAuth2RefreshToken refreshToken, OAuth2Authentication authentication) {
-        ByteBuffer bufferedRefreshToken = serializeRefreshToken(refreshToken);
-        ByteBuffer bufferedAuthentication = serializeAuthentication(authentication);
+        ByteBuffer bufferedRefreshToken = ByteBuffer.wrap(SerializationUtils.serialize(refreshToken));
+        ByteBuffer bufferedAuthentication = ByteBuffer.wrap(SerializationUtils.serialize(authentication));
         final String tokenKey = refreshToken.getValue();
-        RefreshToken rfToken = new RefreshToken();
-        rfToken.setTokenId(tokenKey);
-        rfToken.setToken(bufferedRefreshToken);
-        rfToken.setAuthentication(bufferedAuthentication);
+        RefreshToken rfToken = new RefreshToken(tokenKey, bufferedRefreshToken, bufferedAuthentication);
         refreshTokenRepository.save(rfToken);
     }
 
     @Override
     public OAuth2RefreshToken readRefreshToken(String tokenId) {
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenId(tokenId);
-        if (refreshToken != null) {
+        Optional<RefreshToken> refreshToken = refreshTokenRepository.findByTokenId(tokenId);
+        if (refreshToken.isPresent()) {
             try {
-                return deserializeRefreshToken(refreshToken.getToken());
+                return (OAuth2RefreshToken) deserializeTokenOrAuthentication(refreshToken.get().getToken());
             } catch (IllegalArgumentException e) {
-                removeRefreshToken(tokenId);
+                tokenService.revokeRefreshToken(tokenId);
             }
         }
         return null;
@@ -125,12 +133,12 @@ public class CassandraTokenStore implements TokenStore {
 
     @Override
     public OAuth2Authentication readAuthenticationForRefreshToken(OAuth2RefreshToken token) {
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenId(token.getValue());
-        if (refreshToken != null) {
+        Optional<RefreshToken> refreshToken = refreshTokenRepository.findByTokenId(token.getValue());
+        if (refreshToken.isPresent()) {
             try {
-                return deserializeAuthentication(refreshToken.getAuthentication());
+                return (OAuth2Authentication) deserializeTokenOrAuthentication(refreshToken.get().getAuthentication());
             } catch (IllegalArgumentException e) {
-                removeRefreshToken(token.getValue());
+                tokenService.revokeRefreshToken(token.getValue());
             }
         }
         return null;
@@ -138,7 +146,7 @@ public class CassandraTokenStore implements TokenStore {
 
     @Override
     public void removeRefreshToken(OAuth2RefreshToken token) {
-        removeRefreshToken(token.getValue());
+        tokenService.revokeRefreshToken(token.getValue());
     }
 
     // Remove Access Token Using Refresh Token
@@ -156,7 +164,7 @@ public class CassandraTokenStore implements TokenStore {
         String authenticationId = authenticationKeyGenerator.extractKey(authentication);
         Optional<AccessToken> accessToken = accessTokenRepository.findByAuthenticationId(authenticationId);
         if (accessToken.isPresent()) {
-            return deserializeAccessToken(accessToken.get().getToken());
+            return (OAuth2AccessToken) deserializeTokenOrAuthentication(accessToken.get().getToken());
         }
         return null;
     }
@@ -165,74 +173,22 @@ public class CassandraTokenStore implements TokenStore {
     public Collection<OAuth2AccessToken> findTokensByClientIdAndUserName(String clientId, String userName) {
         final List<AccessToken> oAuth2AccessTokens = accessTokenRepository.findByClientIdAndUsername(userName,
                 clientId);
-        final Collection<AccessToken> noNullTokens = filter(oAuth2AccessTokens, byNotNulls());
-        return transform(noNullTokens, toOAuth2AccessToken());
+        final Collection<AccessToken> noNullTokens = filter(oAuth2AccessTokens, Objects::nonNull);
+        return transform(noNullTokens, token -> (OAuth2AccessToken) deserializeTokenOrAuthentication(token.getToken()));
     }
 
     @Override
     public Collection<OAuth2AccessToken> findTokensByClientId(String clientId) {
         final List<AccessToken> oAuth2AccessTokens = accessTokenRepository.findByClientId(clientId);
-        final Collection<AccessToken> noNullTokens = filter(oAuth2AccessTokens, byNotNulls());
-        return transform(noNullTokens, toOAuth2AccessToken());
+        final Collection<AccessToken> noNullTokens = filter(oAuth2AccessTokens, Objects::nonNull);
+        return transform(noNullTokens, token -> (OAuth2AccessToken) deserializeTokenOrAuthentication(token.getToken()));
     }
 
-    public void removeAccessToken(final String tokenValue) {
-        Optional<AccessToken> accessToken = accessTokenRepository.findByTokenId(tokenValue);
-        if (accessToken.isPresent()) {
-            accessTokenRepository.delete(accessToken.get());
-        }
-    }
-
-    public void removeRefreshToken(String token) {
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenId(token);
-        if (refreshToken != null) {
-            refreshTokenRepository.delete(refreshToken);
-        }
-    }
-
-    /*
-     * public void removeAccessTokenUsingRefreshToken(final String refreshToken) {
-     * AccessToken accessToken =
-     * accessTokenRepository.findByRefreshToken(refreshToken); if (accessToken !=
-     * null) { accessTokenRepository.delete(accessToken); } }
-     */
-
-    protected ByteBuffer serializeAccessToken(OAuth2AccessToken token) {
-        return ByteBuffer.wrap(SerializationUtils.serialize(token));
-    }
-
-    protected ByteBuffer serializeRefreshToken(OAuth2RefreshToken token) {
-        return ByteBuffer.wrap(SerializationUtils.serialize(token));
-    }
-
-    protected ByteBuffer serializeAuthentication(OAuth2Authentication authentication) {
-        return ByteBuffer.wrap(SerializationUtils.serialize(authentication));
-    }
-
-    protected OAuth2AccessToken deserializeAccessToken(ByteBuffer token) {
-        byte[] bytes = new byte[token.remaining()];
-        token.get(bytes);
+    // Deserialize Token Or Authentication Info
+    protected Object deserializeTokenOrAuthentication(ByteBuffer tokenOrAuthentication) {
+        byte[] bytes = new byte[tokenOrAuthentication.remaining()];
+        tokenOrAuthentication.get(bytes);
         return SerializationUtils.deserialize(bytes);
-    }
-
-    protected OAuth2RefreshToken deserializeRefreshToken(ByteBuffer token) {
-        byte[] bytes = new byte[token.remaining()];
-        token.get(bytes);
-        return SerializationUtils.deserialize(bytes);
-    }
-
-    protected OAuth2Authentication deserializeAuthentication(ByteBuffer authentication) {
-        byte[] bytes = new byte[authentication.remaining()];
-        authentication.get(bytes);
-        return SerializationUtils.deserialize(bytes);
-    }
-
-    private Predicate<AccessToken> byNotNulls() {
-        return token -> token != null;
-    }
-
-    private Function<AccessToken, OAuth2AccessToken> toOAuth2AccessToken() {
-        return token -> deserializeAccessToken(token.getToken());
     }
 
 }

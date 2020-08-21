@@ -1,8 +1,8 @@
 package com.showtime.authserver.domain;
 
-import com.datastax.driver.core.DataType;
-import lombok.Data;
-import org.springframework.data.cassandra.core.mapping.CassandraType;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.Table;
@@ -12,15 +12,15 @@ import java.util.UUID;
 /**
  * @author Vengatesan Nagarajan
  */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Table(value = "role")
 public class Role {
 
     @PrimaryKey("role_id")
-    @CassandraType(type = DataType.Name.UUID)
     private UUID roleId;
 
     @Column("role_name")
-    @CassandraType(type = DataType.Name.TEXT)
     private String roleName;
 }

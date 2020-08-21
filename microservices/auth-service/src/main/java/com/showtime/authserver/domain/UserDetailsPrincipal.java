@@ -1,31 +1,31 @@
 package com.showtime.authserver.domain;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import lombok.Data;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author Vengatesan Nagarajan
  */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class UserDetailsPrincipal implements UserDetails {
 
     private static final long serialVersionUID = 1L;
 
     private String userId;
     private String username;
-    private String firstName;
-    private String lastName;
     private String email;
     private String password;
     private String phoneNo;
     private boolean enabled;
-    private byte[] profileImage;
     private List<String> roles;
     private boolean accountNonExpired;
     private boolean accountNonLocked;

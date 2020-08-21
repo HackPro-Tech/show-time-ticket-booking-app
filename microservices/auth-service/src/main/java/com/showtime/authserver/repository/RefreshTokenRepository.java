@@ -1,20 +1,16 @@
 package com.showtime.authserver.repository;
 
+import com.showtime.authserver.domain.RefreshToken;
 import org.springframework.data.cassandra.repository.CassandraRepository;
-import org.springframework.data.cassandra.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.showtime.authserver.domain.RefreshToken;
+import java.util.Optional;
 
 /**
- * 
  * @author Vengatesan Nagarajan
- *
  */
 @Repository
 public interface RefreshTokenRepository extends CassandraRepository<RefreshToken, String> {
-
-	@Query("select * from refresh_token where token_id = ?0")
-	RefreshToken findByTokenId(String tokenId);
+    Optional<RefreshToken> findByTokenId(String tokenId);
 
 }

@@ -1,6 +1,7 @@
 package com.showtime.authserver.domain;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -13,6 +14,7 @@ import java.util.*;
  */
 @Getter
 @Setter
+@NoArgsConstructor
 public class CustomClientDetails implements ClientDetails {
 
     private static final long serialVersionUID = 1L;
