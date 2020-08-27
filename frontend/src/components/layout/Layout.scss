@@ -1,0 +1,27 @@
+@import '../../scss/Config.scss';
+
+
+// Main Body
+.main-body {
+    background: $primary-color;
+    color: #fff;
+    height: 100%;
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.5;
+}
+
+// Main
+.main {
+    padding-top: 3rem;
+    min-height: calc(100vh - 38px);
+}
+
+
+// Footer
+.main-footer {
+    background: darken($color: $theme-color, $amount: 5);
+    color: white;
+    padding: 0.5rem;
+}
+
