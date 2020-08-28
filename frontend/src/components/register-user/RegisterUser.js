@@ -1,13 +1,23 @@
-import React from "react";
-import styles from "./RegisterUser.scss";
+import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserCircle } from "@fortawesome/free-solid-svg-icons";
+import UserForm from "./UserForm";
 
 /**
  * Register New User Component
  */
 const RegisterUser = () => {
   // variables
+  const [user, setUser] = useState({
+    email: "",
+    phoneNo: "",
+    password: "",
+  });
+
+  // Event Handler
+  const handleChange = ({ target }) => {
+    setUser({ ...user, [target.name]: target.value });
+  };
 
   return (
     <div className="register-body">
@@ -16,21 +26,9 @@ const RegisterUser = () => {
         <div className="avatar">
           <FontAwesomeIcon icon={faUserCircle} color="red" size="3x" />
         </div>
-
         <h3 className="header">Sign Up</h3>
-        <form className="register-form">
-          <input type="text" className="form-control" placeholder="Email" />
-          <input type="text" className="form-control" placeholder="Phone No" />
-          <input
-            type="password"
-            className="form-control"
-            placeholder="Password"
-          />
-          <div className="register-btn-group">
-            <button className="btn btn-primary register-btn"> Clear </button>
-            <button className="btn btn-primary register-btn"> Register </button>
-          </div>
-        </form>
+        {/* User Form */}
+        <UserForm user={user} onChange={handleChange} />
       </div>
     </div>
   );
